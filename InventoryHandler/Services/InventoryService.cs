@@ -31,26 +31,24 @@ namespace InventoryHandler.Services
             return await _inventoryRepository.GetItemFromIventory(adventurerId, itemId);
         }
 
-        public async Task AddItemAsync(string adventurerId, string itemId)
+        public async Task AddItemAsync(string adventurerId, string itemId, int amount = 1)
         {
             var item = await _itemClient.Get(itemId);
             if (item == null)
                 throw new InventoryException();
-            await _inventoryRepository.AddAsync(adventurerId, item, 1);
+            await _inventoryRepository.AddAsync(adventurerId, item, amount);
         }
 
-        public async Task AddItemsAsync(string adventurerId, string[] itemsIds)
+        public async Task AddItemsAsync(string adventurerId, IEnumerable<KeyValuePair<string, int>> items)
         {
-            var group = itemsIds.GroupBy(x => x);
-            foreach (var gItem in group.Select(x => new
+            if (items == null)
+                throw new System.ArgumentNullException(nameof(items));
+
+            foreach (var gItem in items)
             {
-                id = x.Key,
-                amount = x.Count()
-            }))
-            {
-                var item = await _itemClient.Get(gItem.id);
+                var item = await _itemClient.Get(gItem.Key);
                 if (item != null)
-                    await _inventoryRepository.AddAsync(adventurerId, item, gItem.amount);
+                    await _inventoryRepository.AddAsync(adventurerId, item, gItem.Value);
             }
         }
 
@@ -62,9 +60,9 @@ namespace InventoryHandler.Services
             await _inventoryRepository.RemoveAsync(adventurerId, itemId, amount);
         }
 
-        public Task<IItem[]> ShowInventoryAsync(string adventurerId)
+        public async Task<IEnumerable<IInventoryItem>> ShowInventoryAsync(string adventurerId)
         {
-            throw new System.NotImplementedException();
+            return await _inventoryRepository.GetItemsFromIventory(adventurerId);
         }
     }
 }

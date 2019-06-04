@@ -16,5 +16,10 @@ namespace InventoryHandler.Tests
                 Amount = 10
             });
         }
+
+        public static IEnumerable<KeyValuePair<string, int>> GenerateInventoryValuePair()
+        {
+            return Enumerable.Range(65, 25).ToDictionary(x => ((char)x).ToString(), x => 10);
+        }
     }
 }

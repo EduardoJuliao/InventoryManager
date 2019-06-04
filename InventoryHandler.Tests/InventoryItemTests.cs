@@ -22,8 +22,6 @@ namespace InventoryHandler.Tests
         private IEnumerable<IItem> _storeItems;
         private IInventoryService _service;
         private const string ADVENTURERID = "98758E0D-B3E0-4ECA-A837-AE239715371E";
-        private IItemClient _itemClient = new ItemClientStub();
-        private InventoryRepositoryStub _repository;
 
         [SetUp]
         public void Setup()
@@ -33,8 +31,8 @@ namespace InventoryHandler.Tests
                 Id = ((char)x).ToString(),
                 Name = ((char)x).ToString()
             });
-            _repository = new InventoryRepositoryStub();
-            _service = new InventoryService(_itemClient, _repository);
+
+            _service = new InventoryService(new ItemClientStub(), new InventoryRepositoryStub());
         }
 
         [Test]
@@ -43,7 +41,21 @@ namespace InventoryHandler.Tests
         {
             await _service.AddItemAsync(ADVENTURERID, "A");
 
-            Assert.That(_repository.Data[ADVENTURERID].Count == 1);
+            var result = await _service.ShowInventoryAsync(ADVENTURERID);
+
+            Assert.That(result.Count() == 1);
+        }
+
+        [Test]
+        [Category("Add")]
+        public async Task CanAddItemWithBiggerAmount()
+        {
+            await _service.AddItemAsync(ADVENTURERID, "A", 3);
+
+            var result = await _service.ShowInventoryAsync(ADVENTURERID);
+
+            Assert.That(result.Count() == 1);
+            Assert.That(result.Single(x => x.Id == "A").Amount == 3);
         }
 
         [Test]
@@ -60,89 +72,114 @@ namespace InventoryHandler.Tests
         [Category("Add")]
         public async Task CanAddMultipleItems()
         {
-            await _service.AddItemsAsync(ADVENTURERID, new[] { "A", "B", "C" });
+            var list = new Dictionary<string, int>
+            {
+                {"A", 1},
+                {"B", 1},
+                {"C", 1},
+            };
 
-            Assert.That(_repository.Data[ADVENTURERID].Count == 3);
+            await _service.AddItemsAsync(ADVENTURERID, list);
+            var result = await _service.ShowInventoryAsync(ADVENTURERID);
+
+            Assert.That(result.Count() == 3);
         }
 
         [Test]
         [Category("Add")]
         public async Task CanAddTheCorrectAmountOfItems()
         {
-            await _service.AddItemsAsync(ADVENTURERID, new[] { "A", "A", "B", "C" });
+            var list = new Dictionary<string, int>
+            {
+                {"A", 2},
+                {"B", 1},
+                {"C", 1},
+            };
 
-            _repository.Data.TryGetValue(ADVENTURERID, out ICollection<IInventoryItem> collection);
-            Assert.That(collection.Count == 3);
-            Assert.That(collection.Single(x => x.Id == "A").Amount == 2);
-            Assert.That(collection.Single(x => x.Id == "B").Amount == 1);
-            Assert.That(collection.Single(x => x.Id == "C").Amount == 1);
+            await _service.AddItemsAsync(ADVENTURERID, list);
+
+            var result = await _service.ShowInventoryAsync(ADVENTURERID);
+            Assert.That(result.Count() == 3);
+            Assert.That(result.Single(x => x.Id == "A").Amount == 2);
+            Assert.That(result.Single(x => x.Id == "B").Amount == 1);
+            Assert.That(result.Single(x => x.Id == "C").Amount == 1);
         }
 
         [Test]
         [Category("Add")]
         public async Task CanAddTheCorrectAmountOfItemsWhenAddingWrongItems()
         {
-            await _service.AddItemsAsync(ADVENTURERID, new[] { "A", "A", "B", "b", "C", "D" });
+            var list = new Dictionary<string, int>
+            {
+                {"A", 2},
+                {"B", 1},
+                {"b", 1},
+                {"C", 1},
+                {"D", 1},
+            };
 
-            _repository.Data.TryGetValue(ADVENTURERID, out ICollection<IInventoryItem> collection);
-            Assert.That(collection.Count == 4);
-            Assert.That(collection.Single(x => x.Id == "A").Amount == 2);
-            Assert.That(collection.Single(x => x.Id == "B").Amount == 1);
-            Assert.That(collection.Single(x => x.Id == "C").Amount == 1);
-            Assert.That(collection.Single(x => x.Id == "D").Amount == 1);
-            Assert.That(collection.SingleOrDefault(x => x.Id == "b") == null);
+            await _service.AddItemsAsync(ADVENTURERID, list);
+
+            var result = await _service.ShowInventoryAsync(ADVENTURERID);
+            Assert.That(result.Count() == 4);
+            Assert.That(result.Single(x => x.Id == "A").Amount == 2);
+            Assert.That(result.Single(x => x.Id == "B").Amount == 1);
+            Assert.That(result.Single(x => x.Id == "C").Amount == 1);
+            Assert.That(result.Single(x => x.Id == "D").Amount == 1);
+            Assert.That(result.SingleOrDefault(x => x.Id == "b") == null);
         }
 
         [Test]
         [Category("Update")]
         public async Task CanAddItemToExistingItemInInventory()
         {
-            _repository.Data.TryAdd(ADVENTURERID, DataGen.GenerateInventory().ToList());
+            await _service.AddItemsAsync(ADVENTURERID, DataGen.GenerateInventoryValuePair());
 
             await _service.AddItemAsync(ADVENTURERID, "A");
 
-            _repository.Data.TryGetValue(ADVENTURERID, out ICollection<IInventoryItem> collection);
-            Assert.That(collection.Single(x => x.Id == "A").Amount == 11);
+            var result = await _service.ShowInventoryAsync(ADVENTURERID);
+            Assert.That(result.Single(x => x.Id == "A").Amount == 11);
         }
 
         [Test]
         [Category("Remove")]
         public async Task CanRemoveItem()
         {
-            _repository.Data.TryAdd(ADVENTURERID, DataGen.GenerateInventory().ToList());
+            await _service.AddItemsAsync(ADVENTURERID, DataGen.GenerateInventoryValuePair());
 
             await _service.RemoveItemAsync(ADVENTURERID, "A", 3);
 
-            _repository.Data.TryGetValue(ADVENTURERID, out ICollection<IInventoryItem> collection);
-            Assert.That(collection.Single(x => x.Id == "A").Amount == 7);
+            var result = await _service.ShowInventoryAsync(ADVENTURERID);
+            Assert.That(result.Single(x => x.Id == "A").Amount == 7);
         }
 
         [Test]
         [Category("Remove")]
         public async Task RemovingAnItemRemovesheEntryFromIventory()
         {
-            _repository.Data.TryAdd(ADVENTURERID, DataGen.GenerateInventory().ToList());
+
+            await _service.AddItemsAsync(ADVENTURERID, DataGen.GenerateInventoryValuePair());
 
             await _service.RemoveItemAsync(ADVENTURERID, "A", 10);
 
-            _repository.Data.TryGetValue(ADVENTURERID, out ICollection<IInventoryItem> collection);
-            Assert.That(collection.SingleOrDefault(x => x.Id == "A") == null);
+            var result = await _service.ShowInventoryAsync(ADVENTURERID);
+            Assert.That(result.SingleOrDefault(x => x.Id == "A") == null);
         }
 
         [Test]
         [Category("Remove")]
-        public void CantRemoveIfWrongAmoutIsInformed()
+        public async Task CantRemoveIfWrongAmoutIsInformed()
         {
-            _repository.Data.TryAdd(ADVENTURERID, DataGen.GenerateInventory().ToList());
+            await _service.AddItemsAsync(ADVENTURERID, DataGen.GenerateInventoryValuePair());
 
             Assert.ThrowsAsync<InventoryException>(async () => await _service.RemoveItemAsync(ADVENTURERID, "A", 11));
         }
 
         [Test]
         [Category("Remove")]
-        public void CantRemoveAnItemThatDoesntExistsInInventory()
+        public async Task CantRemoveAnItemThatDoesntExistsInInventory()
         {
-            _repository.Data.TryAdd(ADVENTURERID, DataGen.GenerateInventory().ToList());
+            await _service.AddItemsAsync(ADVENTURERID, DataGen.GenerateInventoryValuePair());
 
             Assert.ThrowsAsync<InventoryException>(async () => await _service.RemoveItemAsync(ADVENTURERID, "z", 1));
         }

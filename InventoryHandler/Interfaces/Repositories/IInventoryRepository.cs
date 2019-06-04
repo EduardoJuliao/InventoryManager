@@ -11,5 +11,6 @@ namespace InventoryHandler.Interfaces.Repositories
         Task RemoveAsync(string adventurerId, string itemId, int amount);
         Task<bool> Exists(string adventurerId, string itemId);
         Task<IInventoryItem> GetItemFromIventory(string adventurerId, string itemId);
+        Task<IEnumerable<IInventoryItem>> GetItemsFromIventory(string adventurerId);
     }
 }

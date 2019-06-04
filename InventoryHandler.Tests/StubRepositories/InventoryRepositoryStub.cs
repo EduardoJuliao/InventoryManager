@@ -73,6 +73,15 @@ namespace InventoryHandler.Tests.StubRepositories
             });
         }
 
+        public async Task<IEnumerable<IInventoryItem>> GetItemsFromIventory(string adventurerId)
+        {
+            return await Task.Run(() =>
+            {
+                Data.TryGetValue(adventurerId, out ICollection<IInventoryItem> collection);
+                return collection;
+            });
+        }
+
         public async Task RemoveAsync(string adventurerId, string itemId, int amount)
         {
             await Task.Run(() =>
